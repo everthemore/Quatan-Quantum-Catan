@@ -24,7 +24,10 @@ from .constants import WIN_W as W, WIN_H as H
 
 # UI helper - create rects for buttons; draw helpers
 def draw_text(screen, text, x, y, size=18, color=TEXT_COLOR):
-    font = pygame.font.SysFont("Arial", size)
+    try:
+        font = pygame.font.Font("QuantumCatan/fonts/ScienceGothic-Regular.ttf", size)
+    except:
+        font = pygame.font.SysFont("Arial", size)
     surf = font.render(text, True, color)
     screen.blit(surf, (x, y))
 

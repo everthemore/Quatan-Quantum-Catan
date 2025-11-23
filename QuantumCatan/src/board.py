@@ -104,8 +104,8 @@ def randomize_tiles():
         tiles[idx]["superposed"] = random.sample(["wood","brick","sheep","wheat","ore"], 2)
         tiles[idx]["correlation"] = None
     
-    for t in tiles:
-        print(tiles[tiles.index(t)])
+    #for t in tiles:
+    #    print(tiles[tiles.index(t)])
 
     return tiles
 
