@@ -29,6 +29,10 @@ class GameState:
         self.num_players = num_players
         self.current_player = 0
         self.hex_size = 50
+        
+        
+        self.allowed_actions = ["building", "rolling", "trading"]
+        
         # initialize players
         self.players = [Player(i) for i in range(num_players)]
         for i,p in enumerate(self.players):
@@ -45,6 +49,15 @@ class GameState:
         self.entangling = False
         self.entangling_pair = []
         self.unused_ent_group_number = None
+        
+        self.trading = False
+        self.trading_partner = None  # player index or "bank/port"
+        self.possible_trading_partners = []  # list of player indices
+        self.trading_partners_rects = []  # list of rects for clicking
+        
+        self.victim = None  # player index to steal from
+        self.possible_victims = []  # list of (player_idx, building_type) adjacent to robber tile
+        self.possible_victims_rects = []  # list of rects for clicking
         
         self.placing = None  # whether in placement mode
         self.sel = None
@@ -74,13 +87,10 @@ class GameState:
         self.dice_rect = pygame.Rect(20,70,120,40)
         self.end_turn_rect = pygame.Rect(20, H-66, 120, 44)
 
-        self.trade_rect = pygame.Rect(W-240, 18, 80, 26)
+        self.trade_rect = pygame.Rect(W-240, 240, 80, 20)
         # shop rects are computed each draw
         self.shop_rects = []
         self.shop_rects = []
-        # trade UI rects placeholders
-        self.trade_give_rects = []
-        self.trade_recv_rects = []
 
 
     # -- messaging helpers ---------------------------------------
@@ -219,6 +229,17 @@ class GameState:
         if road_idx is None or road_idx >= len(roads):
             return False
         edge = tuple(roads[road_idx])
+        #check if adjacent to existing road or settlement of current player
+        for vertex in edge:
+            # check adjacent settlements
+            owner = self.settlements_owner.get(vertex)
+            if owner is not None and owner[0] == self.current_player:
+                return True
+            # check adjacent roads
+            for neighbor in self.vertex_neighbors.get(vertex, []):
+                adjacent_edge = tuple(sorted((vertex, neighbor)))
+                if adjacent_edge in self.roads_owner and self.roads_owner[adjacent_edge] == self.current_player:
+                    return True
         return edge not in self.roads_owner
 
     def player_can_afford(self, player_idx, item_key):
@@ -274,13 +295,21 @@ class GameState:
     def roll_and_distribute(self):
         #print("Rolling dice and distributing resources...")
         self.moving_robber = False
+        self.allowed_actions.remove("rolling")
         roll = roll_with_animation(self.screen)
         self.push_message(f"Dice rolled: {roll}")
         self.last_roll = roll
         if roll == 7:
             self.push_message("Please move the robber.")
             self.moving_robber = True
+            self.allowed_actions.remove("trading")
+            self.allowed_actions.remove("endTurn")
+            self.allowed_actions.remove("building")
             return
+        else:
+            self.allowed_actions.append("endTurn")
+            self.allowed_actions.append("trading")
+            self.allowed_actions.append("building")
         # collect tokens or classical resources to players
         # for each tile: if its number matches roll:
         for ti,tile in enumerate(self.tiles):
@@ -298,12 +327,13 @@ class GameState:
                         player_idx, typ = owner
                         if tile.get("quantum", False):
                             #print(f"Tile is quantum, giving token to Player {player_idx}.")
-                            token = {"type":"entangled","group":tile["ent_group"], "possible": tile.get("superposed"), "tile_coord": tile["coord"]}
+                            token = {"type":"entangled","group":tile["ent_group"], "possible": tile.get("superposed")[:], "tile_coord": tile["coord"]}
                             # store token with player
                             token["from_tile_idx"] = ti
                             self.players[player_idx].tokens.append(token)
                             #print(f"all resources of player are now: {self.players[player_idx].resources}. And all tokens of player are now: {self.players[player_idx].tokens}.")
                             self.push_message(f"{self.players[player_idx].name} received one superposed token")
+                            print(self.players[player_idx].tokens)
                                     
                         else:
                             # classical payout
@@ -319,6 +349,19 @@ class GameState:
         ratio = best_trade_ratio_for(player_idx, give_resource, self.sea_tiles, self.port_vertex_map, self.settlements_owner)
         ok = perform_trade([p.resources for p in self.players], player_idx, give_resource, receive_resource, ratio)
         return ok, ratio
+    
+    def steal_from_victim(self, thief_idx, victim_idx):
+        victim = self.players[victim_idx]
+        thief = self.players[thief_idx]
+        # gather all resources of victim
+        available_resources = [res for res, amt in victim.resources.items() if amt > 0]
+        if not available_resources:
+            self.push_message(f"{victim.name} has no resources to steal.")
+            return
+        stolen_resource = random.choice(available_resources)
+        victim.resources[stolen_resource] -= 1
+        thief.resources[stolen_resource] += 1
+        self.push_message(f"{thief.name} stole 1 {stolen_resource} from {victim.name}.")
 
     # robber movement: puts or breaks quantum state
     def move_robber_to(self, tile_idx):
@@ -329,7 +372,12 @@ class GameState:
             self.push_message(f"Robber moved to entangled quantum tile at index {tile_idx}, unentangling the pair.")
             self.push_message("Now entangle a pair of normal tiles.")
             self.entangling = True
-
+        #check if another player is on this tile and steal a resource
+        for v in self.hex_vertex_indices[tile_idx]:
+            owner = self.settlements_owner.get(v)
+            if owner:
+                owner_idx, btype = owner
+                self.possible_victims.append(owner_idx)
     # switches a pair of normal tiles to a pair of entangeled tiles
     def entangle_pair_of_normal_tiles(self, pair_of_tiles, ent_group_number):
         """ A list with a two pairs needs to be passed in this function, next it checks with which of the 
@@ -337,6 +385,9 @@ class GameState:
         the self.tiles list, entgroup_number should come from the previous pair of entangled tiles.
         Does assume the tiles are not quantum"""
         # saves the resources of the normal tiles
+        self.allowed_actions.append("endTurn")
+        self.allowed_actions.append("trading")
+        self.allowed_actions.append("building")
         resourche1 = pair_of_tiles[0].get("resource")
         resourche2 = pair_of_tiles[1].get("resource")
         # checks for every tile in the self.riles list if one of the given tiles equals it
@@ -355,10 +406,11 @@ class GameState:
         # gets the superposed list from one of the tiles, other should match so no problem there
         pair_of_q_tiles = []
         ent_group_number = robber_tile.get("ent_group")
+        print(ent_group_number)
         for tile in self.tiles:
             if tile.get("ent_group") == ent_group_number:
                     pair_of_q_tiles.append(tile)
-        possible_resources = robber_tile.get("superposed")
+        possible_resources = robber_tile.get("superposed")[:]
         self.unused_ent_group_number = ent_group_number
         # shuffles the list to create randomness
         random.shuffle(possible_resources)
@@ -374,7 +426,7 @@ class GameState:
                     del self.tiles[n]["superposed"]
         for player in self.players:
             # checks all tokens of every player
-            for token in player.tokens:
+            for token in player.tokens[:]:
                 # if the token belonged to one of the unentangled tiles, it is removed
                 if token.get("group") == ent_group_number:
                     print(f"Token from tile {token.get("tile_coord")} belonging to entangled group {ent_group_number} has collapsed and is converted from Player {player.idx}'s inventory.")
@@ -444,7 +496,7 @@ class GameState:
                 pygame.draw.rect(s, col, (x-13, y-13, 26, 26))
                 pygame.draw.rect(s, BLACK, (x-13, y-13, 26, 26), 2)
                 
-        #draw placement preview
+        # draw placement preview
         if self.placing and self.sel:
             mouse_x, mouse_y = pygame.mouse.get_pos()
             if self.sel in ("village","city"):
@@ -459,6 +511,7 @@ class GameState:
                         pygame.draw.rect(s, PREVIEW_COLOR["good" if can_place else "bad"], (vx-13, vy-13, 26, 26), width=2)
             elif self.sel == "road":
                 nearest = self.find_nearest_road((mouse_x, mouse_y))
+                can_place = self.can_place_road_slot(nearest)
                 if nearest is not None:
                     a,b = self.roads_list[nearest]
                     ax,ay = self.intersections[a]; bx,by = self.intersections[b]
@@ -467,28 +520,78 @@ class GameState:
         # UI panels (basic)
         # inventory panel
         ix = self.screen.get_width() - 240
-        pygame.draw.rect(s, PANEL_BG, (ix, 8, 232, 220), border_radius=8)
+        pygame.draw.rect(s, PANEL_BG, (ix, 5, 235, 330), border_radius=8)
         font = getFont(16)
-        title = font.render(f"P{self.current_player+1}", True, PLAYER_COLORS[self.current_player])
+        title = font.render(f"P{self.current_player+1}  (Score = {self.players[self.current_player].score})", True, PLAYER_COLORS[self.current_player])
         s.blit(title, (ix+10, 10))
-        sub = getFont(14).render("Inventory:", True, TEXT_COLOR)
+        sub = getFont(16).render("Inventory:", True, TEXT_COLOR)
         s.blit(sub, (ix+10, 36))
         # show resources
         for i,res in enumerate(["wood","brick","sheep","wheat","ore"]):
             txt = getFont(14).render(f"{res.capitalize()}: {self.players[self.current_player].resources.get(res,0)}", True, TEXT_COLOR)
             s.blit(txt, (ix+12, 60 + i*20))
-
+        # show tokens
+        tokensMessage = getFont(16).render(f"Tokens: ({len(self.players[self.current_player].tokens)})" + f"(18 shown)" if len(self.players[self.current_player].tokens)>18 else f"Tokens: ({len(self.players[self.current_player].tokens)})", True, TEXT_COLOR)
+        s.blit(tokensMessage, (ix+12, 170))
+        for i, token in enumerate(self.players[self.current_player].tokens if len(self.players[self.current_player].tokens)<=18 else self.players[self.current_player].tokens[-18:]):
+            dis = token.get("distribution", 0.5)
+            possibleOne = str(token.get("possible")[0])
+            possibleTwo = str(token.get("possible")[1])
+            size = 14
+            distance = 20
+            if len(self.players[self.current_player].tokens) > 6:
+                size = 12
+                distance = 16
+                if len(self.players[self.current_player].tokens) > 9:
+                    size = 10
+                    distance = 12
+                    if len(self.players[self.current_player].tokens) > 12:
+                        size = 8
+                        distance = 8
+            txt = getFont(size).render(f"{possibleOne.capitalize()}: {dis}, {possibleTwo.capitalize()}: {1-dis}", True, TEXT_COLOR)
+            s.blit(txt, (ix+12, 190 + i*distance))
+        
+        #trading / robber stealing panel
+        if self.possible_victims or self.trading:
+            pygame.draw.rect(s, PANEL_BG, (ix, 360, 235, 120), border_radius=8)
+            if self.possible_victims:
+                draw_text(s, "Steal from:", ix+10, 365, size=16)
+                for i, pidx in enumerate(self.possible_victims):
+                    self.possible_victims_rects.append(pygame.Rect(ix+10, 390 + i*20, 215, 18))
+                    pygame.draw.rect(s, self.players[pidx].color, self.possible_victims_rects[i], border_radius=6)
+                    draw_text(s, f"{self.players[pidx].name}", ix+12, 388 + i*20, size=14, color=WHITE)
+            elif self.trading:
+                draw_text(s, "Trade with:", ix+10, 365, size=16)
+                k = 0
+                self.possible_trading_partners.append("bank/port")
+                self.trading_partners_rects.append(pygame.Rect(ix+10, 390 + k*20, 215, 18))
+                pygame.draw.rect(s, WHITE, self.trading_partners_rects[k], border_radius=6)
+                draw_text(s, f"Bank/port", ix+12, 388 + k*20, size=14, color=BLACK)
+                for i in range(len(self.players)):
+                    if i == self.current_player:
+                        continue
+                    else:
+                        self.possible_trading_partners.append(self.players[i].idx)
+                        self.trading_partners_rects.append(pygame.Rect(ix+10, 390 + (k+1)*20, 215, 18))
+                        pygame.draw.rect(s, self.players[i].color, self.trading_partners_rects[k+1], border_radius=6)
+                        draw_text(s, f"{self.players[i].name}", ix+12, 388 + (k+1)*20, size=14, color=WHITE)
+                        k+=1
+        #trading button:
+        self.trade_rect = pygame.Rect(self.screen.get_width() - 190, 340, 80, 20)
+        pygame.draw.rect(s, (150,100,200) if "trading" in self.allowed_actions else (128, 128, 128), self.trade_rect, border_radius=6)
+        draw_text(s, "Trade", self.trade_rect.x+16, self.trade_rect.y+2, size=14, color=WHITE)
+        
         # top-left buttons
         pygame.draw.rect(s, BUTTON_COLOR, self.reset_rect, border_radius=8)
         draw_text(s, "Reset", self.reset_rect.x+16, self.reset_rect.y+6, size=18, color=WHITE)
-        pygame.draw.rect(s, (100,100,200), self.dice_rect, border_radius=8)
+        pygame.draw.rect(s, (100,100,200) if "rolling" in self.allowed_actions else (128, 128, 128), self.dice_rect, border_radius=8)
         draw_text(s, "Roll Dice", self.dice_rect.x+12, self.dice_rect.y+8, size=18, color=WHITE)
-        _, win_height = self.screen.get_size()
+        win_width, win_height = self.screen.get_size()
         self.end_turn_rect = pygame.Rect(20, win_height - 66, 120, 44)
-        pygame.draw.rect(s, (80,150,90), self.end_turn_rect, border_radius=8)
+        pygame.draw.rect(s, (80,150,90) if "endTurn" in self.allowed_actions else (128, 128, 128), self.end_turn_rect, border_radius=8)
         draw_text(s, "End Turn", self.end_turn_rect.x+12, self.end_turn_rect.y+8, size=18, color=WHITE)
-        
         draw_text(s, "Quantum Catan", self.screen.get_width()//2 - 80, 10, size=24, color=TEXT_COLOR)
+
 
         # shop
         sx, sy = self.screen.get_width()-245, self.screen.get_height()-210
@@ -499,7 +602,7 @@ class GameState:
         opts = [("road","Road"),("village","Village"),("city","City"),("dev","Dev Card")]
         for i,(k,l) in enumerate(opts):
             r = pygame.Rect(sx+10, sy+40 + i*36, 200, 30)
-            pygame.draw.rect(s, BUTTON_COLOR, r, border_radius=6)
+            pygame.draw.rect(s, self.players[self.current_player].color, r, border_radius=6)
             draw_text(s, f"{l}", r.x+8, r.y+6, size=14, color=WHITE)
             self.shop_rects.append((k,r))
 
@@ -555,9 +658,20 @@ class GameState:
         
     def end_turn(self):
         self.current_player = (self.current_player + 1) % self.num_players
+        self.trading = False
+        self.trading_partner = None
+        self.possible_trading_partners = []
+        self.trading_partners_rects = []
+        self.possible_victims = []
+        self.possible_victims_rects = []
 
     # simple update hook called from main loop
     def update(self, dt):
+        if "trading" not in self.allowed_actions:
+            self.trading = False
+            self.trading_partner = None
+            self.possible_trading_partners = []
+            self.trading_partners_rects = []
         """
         dt: milliseconds since last frame.
         Currently a no-op placeholder. Extend this to:

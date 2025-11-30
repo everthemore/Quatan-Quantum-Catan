@@ -87,6 +87,9 @@ def randomize_tiles():
         # both tiles share the same two possibilities
         tiles[a]["superposed"] = possibilities[:]
         tiles[b]["superposed"] = possibilities[:]
+        
+        tiles[a]["distribution"] = 0.5
+        tiles[b]["distribution"] = 0.5
 
         group_id += 1
 

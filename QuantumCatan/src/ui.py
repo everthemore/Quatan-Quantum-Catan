@@ -15,8 +15,6 @@ class GameUI:
     def __init__(self, state: GameState, screen):
         self.state = state
         self.screen = screen
-        self.trade_mode = False
-        self.trade_give = None
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -36,35 +34,35 @@ class GameUI:
         if rect_contains(self.state.reset_rect, pos):
             state.reset_game()
             return
-        if rect_contains(self.state.dice_rect, pos):
+        if rect_contains(self.state.dice_rect, pos) and "rolling" in self.state.allowed_actions:
             state.roll_and_distribute()
             return
-        if rect_contains(self.state.end_turn_rect, pos):
+        if rect_contains(self.state.end_turn_rect, pos) and "endTurn" in self.state.allowed_actions:
             state.end_turn()
             return
-        if rect_contains(self.state.trade_rect, pos):
-            self.trade_mode = not self.trade_mode
-            self.trade_give = None
+        if rect_contains(self.state.trade_rect, pos) and "trading" in self.state.allowed_actions:
+            self.state.trading = not self.state.trading
             return
+        
         # if trading mode: select give then receive via panels
-        if self.trade_mode:
+        if self.state.trading:
             # check inventory give buttons
-            clicked = False
-            for res, rect in self.state.trade_give_rects:
+            for res, rect in enumerate(self.state.trading_partners_rects):
                 if rect_contains(rect, pos):
-                    self.trade_give = res
-                    clicked = True
+                    if self.state.possible_trading_partners[res] == "Bank/port":
+                        self.state.trading_partner = "bank/port"
+                    else:
+                        self.state.trading_partner = self.state.possible_trading_partners[res]
                     break
-            if clicked:
                 return
-            if self.trade_give:
-                for res, rect in self.state.trade_recv_rects:
-                    if rect_contains(rect, pos):
-                        ok, ratio = self.state.perform_trade(self.state.current_player, self.trade_give, res)
-                        self.trade_mode = False
-                        self.trade_give = None
-                        return
-            return
+        
+        if self.state.possible_victims:
+            for res, rect in enumerate(self.state.possible_victims_rects):
+                if rect_contains(rect, pos):
+                    self.state.victim = self.state.possible_victims[res]
+                    self.state.steal_from_victim(self.state.current_player, self.state.victim)
+                    self.state.possible_victims = []
+                    return
 
         # shop clicks
         for k, rect in self.state.shop_rects:
@@ -112,19 +110,26 @@ class GameUI:
                 self.state.moving_robber = False
         elif self.state.entangling:
             tile_idx = self.state.find_nearest_tile(pos)
+            resource_list = [t.get("resource") for t in self.state.entangling_pair]
             if tile_idx is not None and tile_idx != self.state.robber_idx:
                 tile = self.state.tiles[tile_idx]
-                if tile not in self.state.entangling_pair and not tile.get("quantum", False):
+                if tile in self.state.entangling_pair:
+                    self.state.push_message("Already selected this tile. Select a different quantum tile.")
+                elif tile.get("quantum", False):
+                    self.state.push_message("Selected tile is quantum. Select a classical tile.")
+                elif tile.get("resource") == "desert":
+                    self.state.push_message("Cannot entangle desert tile. Select a different classical tile.")
+                
+                elif tile.get("resource") in resource_list:
+                    self.state.push_message("Cannot entangle two tiles of the same resource type. Select a different classical tile.")
+                else:
                     self.state.entangling_pair.append(tile)
                     if len(self.state.entangling_pair) == 2:
                         self.state.entangle_pair_of_normal_tiles(self.state.entangling_pair, self.state.unused_ent_group_number)
                         self.state.entangling_pair = []
-                        self.state.entangling = False
-                elif tile in self.state.entangling_pair:
-                    self.state.push_message("Already selected this tile. Select a different quantum tile.")
-                else:    
-                    self.state.push_message("Selected tile is quantum. Select a classical tile.")
-        else:
+                        self.state.entangling = False 
+                    
+        else: # inspection mode
             tile_idx = self.state.find_nearest_tile(pos)
             tile = self.state.tiles[tile_idx] if tile_idx is not None else None
             self.state.push_message(f"Inspected tile:")
