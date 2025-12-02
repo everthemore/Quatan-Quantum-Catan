@@ -39,7 +39,7 @@ SEA_COORDS = generate_sea_coords()
 
 STANDARD_NUMBERS = [2,3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11,12]
 
-RESOURCE_POOL = ["wood"]*4 + ["brick"]*3 + ["sheep"]*4 + ["wheat"]*4 + ["ore"]*3
+RESOURCE_POOL = ["lumber"]*4 + ["brick"]*4 + ["wool"]*4 + ["grain"]*4 + ["ore"]*4
 
 def randomize_tiles():
     coords = list(HEX_COORDS)
@@ -77,7 +77,7 @@ def randomize_tiles():
         b = pending.pop()
 
         # two distinct possible outcomes
-        possibilities = random.sample(["wood","brick","sheep","wheat","ore"], 2)
+        possibilities = random.sample(["lumber","brick","wool","grain","ore"], 2)
         #print(possibilities[:])
         tiles[a]["ent_group"] = group_id
         tiles[b]["ent_group"] = group_id
@@ -92,12 +92,6 @@ def randomize_tiles():
         tiles[b]["distribution"] = 0.5
 
         group_id += 1
-
-    # leftover tile → simple superposition
-    for idx in pending:
-        tiles[idx]["ent_group"] = None
-        tiles[idx]["quantum"] = True
-        tiles[idx]["superposed"] = random.sample(["wood","brick","sheep","wheat","ore"], 2)
     
     #for t in tiles:
     #    print(tiles[tiles.index(t)])
@@ -111,7 +105,7 @@ def generate_sea_ring():
     pattern = ["port" if i % 2 == 0 else "sea" for i in range(n)]
     rotation = random.randint(0, n - 1)
     pattern = pattern[rotation:] + pattern[:rotation]
-    ports = ["port_brick","port_wood","port_sheep","port_wheat","port_ore"] + ["port_any"]*4
+    ports = ["port_brick","port_lumber","port_wool","port_grain","port_ore"] + ["port_any"]*4
     random.shuffle(ports)
     sea_tiles = []
     port_i = 0

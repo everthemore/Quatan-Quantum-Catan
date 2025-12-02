@@ -7,7 +7,7 @@ class Player:
         self.name = f"Player {idx+1}"
         self.color = None  # set by game_state
         # classical resources
-        self.resources = {"wood":0,"brick":0,"sheep":0,"wheat":0,"ore":0}
+        self.resources = {"lumber":0,"brick":0,"wool":0,"grain":0,"ore":0}
         # quantum tokens (list of token dicts from quantum.py)
         self.tokens = []
         # owned buildings tracked in game_state dictionaries (roads_owner / settlements_owner)

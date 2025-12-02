@@ -21,11 +21,9 @@ class GameUI:
             self._handle_click(g_event.pos)
         if g_event.type == pygame.KEYDOWN:
             if g_event.key == pygame.K_ESCAPE:
-                # cancel placement/trade
+                # cancel placement
                 self.state.sel = None
                 self.state.placing = False
-                self.trade_mode = False
-                self.trade_give = None
             else:
                 self.handle_dev_clicks(g_event)
             
@@ -60,12 +58,13 @@ class GameUI:
             return
         if rect_contains(self.state.trade_rect, pos) and ("trading" in self.state.allowed_actions or self.state.devMode == True):
             self.state.trading = not self.state.trading
+            print(self.state.trading)
             return
         if rect_contains(self.state.devMode_rect, pos) and self.state.devMode == False:
             self.state.devMode = True
             self.state.round = 5
             for player in self.state.players:
-                player.resources = {"wood":100,"brick":100,"sheep":100,"wheat":100,"ore":100}
+                player.resources = {"lumber":100,"brick":100,"wool":100,"grain":100,"ore":100}
         
         # if trading mode: select give then receive via panels
         if self.state.trading:
@@ -93,17 +92,31 @@ class GameUI:
                 # toggle selection
                 if self.state.sel == k:
                     self.state.sel = None
-                    self.placing = False
+                    self.state.placing = False
                 else:
                     if self.state.round < 2:
-                        if k == "village" or k == "road":
-                            self.state.sel = k
-                            self.state.placing = self.state.sel
+                        if k == "village":
+                            if self.state.villages_placed < self.state.num_players*self.state.round + self.state.current_player+1:
+                                self.state.sel = k
+                                self.state.placing = self.state.sel
+                            else:
+                                self.state.push_message("You already placed a village this initial placement turn")
+                        elif k == "road":
+                            if self.state.villages_placed == self.state.num_players*self.state.round + self.state.current_player+1:
+                                if self.state.roads_placed < self.state.num_players*self.state.round + self.state.current_player+1:
+                                    self.state.sel = k
+                                    self.state.placing = self.state.sel
+                                else:
+                                    self.state.push_message("You already placed a road this initial placement turn")
+                            else:
+                                self.state.push_message("First, place a village before placing a road")
                         else:
                             self.state.push_message("Can only place villages and roads during initial placement.")
                     elif self.state.round >= 2 and self.state.player_can_afford(self.state.current_player, k):
                         self.state.sel = k
                         self.state.placing = self.state.sel
+                    else:
+                        self.state.push_message("Can't afford")
                 return
 
         # placement logic

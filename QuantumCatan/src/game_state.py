@@ -27,7 +27,6 @@ class GameState:
         self.screen = screen
         self.num_players = num_players
         self.hex_size = 50
-        self.current_player = 0
         self.origin = (self.screen.get_width()//2, self.screen.get_height()//2 - 10)
         self.centers, self.polys = compute_centers_and_polys(self.origin)
         self.sea_centers, self.sea_polys = compute_sea_polys(self.origin)
@@ -184,10 +183,10 @@ class GameState:
     def player_can_afford(self, player_idx, item_key):
         # use COSTS mapping minimal (recreate simple mapping)
         COSTS = {
-            "road": {"wood":1,"brick":1},
-            "village": {"wood":1,"brick":1,"sheep":1,"wheat":1},
-            "city": {"wheat":2,"ore":3},
-            "dev": {"sheep":1,"wheat":1,"ore":1}
+            "road": {"lumber":1,"brick":1},
+            "village": {"lumber":1,"brick":1,"wool":1,"grain":1},
+            "city": {"grain":2,"ore":3},
+            "dev": {"wool":1,"grain":1,"ore":1}
         }
         cost = COSTS.get(item_key, {})
         res = self.players[player_idx].resources
@@ -198,10 +197,10 @@ class GameState:
 
     def player_buy(self, player_idx, item_key):
         COSTS = {
-            "road": {"wood":1,"brick":1},
-            "village": {"wood":1,"brick":1,"sheep":1,"wheat":1},
-            "city": {"wheat":2,"ore":3},
-            "dev": {"sheep":1,"wheat":1,"ore":1}
+            "road": {"lumber":1,"brick":1},
+            "village": {"lumber":1,"brick":1,"wool":1,"grain":1},
+            "city": {"grain":2,"ore":3},
+            "dev": {"wool":1,"grain":1,"ore":1}
         }
         if not self.player_can_afford(player_idx, item_key):
             return False
@@ -421,18 +420,19 @@ class GameState:
                     self.push_message(msg)
                     player.tokens.remove(token)
                     
-    def change_ditribution(self, choosen_tile):
+    def change_ditribution(self, chosen_tile):
         """input the tile which's distribution will increase, this function will increase it's distribution
         and decrease its pair's"""
         # finding both tiles and putting them in a list, also getting the index of the tile which will increase
-        group_id = choosen_tile.get("ent_group")
+        group_id = chosen_tile.get("ent_group")
         both_tiles = []
+        increase_tile_idx = None
         for tile in self.tiles:
             if tile.get("ent_group") == group_id:
                 both_tiles.append(tile) 
-                if tile == choosen_tile:
+                if tile == chosen_tile:
                     increase_tile_idx = len(both_tiles) - 1
-        # finding the tile with the leeser distribution and extracting this
+        # finding the tile with the lesser distribution and extracting this
         if both_tiles[0].get("distribution") <= both_tiles[1].get("distribution"):
             lesser_idx = 0
         else:
@@ -463,6 +463,7 @@ class GameState:
                         self.tiles[n]["distribution"] = probnum/(probnum+1)
                     elif both_tiles[i] == self.tiles[n]:
                         self.tiles[n]["distribution"] = (1/(probnum+1))
+        print()
 
 
         
@@ -482,7 +483,7 @@ class GameState:
         # land tiles
         for i, tile in enumerate(self.tiles):
             res = tile.get("resource")
-            mapping = {"wood":(120,180,80),"brick":(200,140,100),"sheep":(160,210,140),"wheat":(230,210,100),"ore":(140,140,170),"desert":(230,200,160)}
+            mapping = {"lumber":(120,180,80),"brick":(200,140,100),"wool":(160,210,140),"grain":(230,210,100),"ore":(140,140,170),"desert":(230,200,160)}
             if tile.get("quantum", False):
                 # quantum tiles: use a special striping fill
                 # because of the superposition the resources need to be pulled from the "superposed" part pf tile, next
@@ -570,7 +571,7 @@ class GameState:
         sub = getFont(16).render("Inventory:", True, TEXT_COLOR)
         s.blit(sub, (ix+10, 36))
         # show resources
-        for i,res in enumerate(["wood","brick","sheep","wheat","ore"]):
+        for i,res in enumerate(["lumber","brick","wool","grain","ore"]):
             txt = getFont(14).render(f"{res.capitalize()}: {self.players[self.current_player].resources.get(res,0)}", True, TEXT_COLOR)
             s.blit(txt, (ix+12, 60 + i*20))
         # show tokens
@@ -646,9 +647,24 @@ class GameState:
         # populate shop rects and store them in state
         self.shop_rects = []
         opts = [("road","Road"),("village","Village"),("city","City"),("dev","Dev Card")]
+        selectBrightFactor = 1.2
+        hoverBrightFactor = 1.1
         for i,(k,l) in enumerate(opts):
             r = pygame.Rect(sx+10, sy+40 + i*36, 200, 30)
-            pygame.draw.rect(s, self.players[self.current_player].color, r, border_radius=6)
+            pygame.draw.rect(s, (self.players[self.current_player].color[0]*selectBrightFactor, self.players[self.current_player].color[1]*selectBrightFactor, self.players[self.current_player].color[2]*selectBrightFactor)
+                            if self.sel == k
+                            else (self.players[self.current_player].color[0]*hoverBrightFactor, self.players[self.current_player].color[1]*hoverBrightFactor, self.players[self.current_player].color[2]*hoverBrightFactor)
+                            if r.collidepoint(pygame.mouse.get_pos())
+                             else self.players[self.current_player].color 
+                            if (
+                                self.round>=2  
+                                or ((k == "village"
+                                    and self.villages_placed < self.num_players*self.round + self.current_player+1) 
+                                or (k == "road"
+                                    and self.villages_placed == self.num_players*self.round + self.current_player+1
+                                    and self.roads_placed < self.num_players*self.round + self.current_player+1)
+                                )) 
+                            else (128, 128, 128), r, border_radius=6)
             draw_text(s, f"{l}", r.x+8, r.y+6, size=14, color=WHITE)
             self.shop_rects.append((k,r))
 
@@ -723,13 +739,14 @@ class GameState:
 
     def reset_game(self):
         self.round = 0
+        self.current_player = 0
         self.allowed_actions = ["building"]
         
         # initialize players
         self.players = [Player(i) for i in range(self.num_players)]
         for i,p in enumerate(self.players):
             p.color = PLAYER_COLORS[i]
-            p.resources = {"wood":0,"brick":0,"sheep":0,"wheat":0,"ore":0}
+            p.resources = {"lumber":0,"brick":0,"wool":0,"grain":0,"ore":0}
             p.tokens = []
         # geometry & tiles
         
@@ -789,7 +806,7 @@ class GameState:
 
     # simple update hook called from main loop
     def update(self, dt):
-        if "trading" not in self.allowed_actions:
+        if "trading" not in self.allowed_actions and not self.devMode:
             self.trading = False
             self.trading_partner = None
             self.possible_trading_partners = []
@@ -797,10 +814,9 @@ class GameState:
         
         if self.round < 2:
             amountShouldBePlaced = self.num_players*self.round + self.current_player+1
-            if (self.roads_placed == amountShouldBePlaced):
-                if (self.villages_placed == amountShouldBePlaced):
-                    if "endTurn" not in self.allowed_actions:
-                        if self.devMode == False: self.allowed_actions.append("endTurn")
+            if (self.roads_placed == amountShouldBePlaced) and (self.villages_placed == amountShouldBePlaced):
+                if "endTurn" not in self.allowed_actions:
+                    if self.devMode == False: self.allowed_actions.append("endTurn")
                
                 
         """
