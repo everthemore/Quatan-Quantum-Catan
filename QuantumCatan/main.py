@@ -41,7 +41,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             ui.handle_event(event)
-
+    
         state.update(dt)
         ui.draw()
         pygame.display.flip()

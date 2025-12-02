@@ -32,7 +32,6 @@ class GameState:
         self.centers, self.polys = compute_centers_and_polys(self.origin)
         self.sea_centers, self.sea_polys = compute_sea_polys(self.origin)
         self.reset_game()
-        
 
 
     # -- messaging helpers ---------------------------------------
@@ -339,10 +338,11 @@ class GameState:
         tiles in the self.tiles list it matches and changes the atributes of the dictionary belonging to the tile in 
         the self.tiles list, entgroup_number should come from the previous pair of entangled tiles.
         Does assume the tiles are not quantum"""
-        # saves the resources of the normal tiles
+        
         if self.devMode == False: self.allowed_actions.append("endTurn")
         if self.devMode == False: self.allowed_actions.append("trading")
         if self.devMode == False: self.allowed_actions.append("building")
+        # saves the resources of the normal tiles
         resourche1 = pair_of_tiles[0].get("resource")
         resourche2 = pair_of_tiles[1].get("resource")
         # checks for every tile in the self.riles list if one of the given tiles equals it
@@ -353,23 +353,42 @@ class GameState:
                     self.tiles[n]["quantum"] = True
                     self.tiles[n]["ent_group"] = ent_group_number
                     self.tiles[n]["resource"] = None
+                    self.tiles[n]["distribution"] = 0.5
                     self.tiles[n]["superposed"] = [resourche1, resourche2]
 
     def unentangle_pair_of_quantum_tiles(self, robber_tile):
         """same principle as the other function, assumes the two quantum tiles contained in the list have the 
         same superposition and shit"""
-        # gets the superposed list from one of the tiles, other should match so no problem there
+        # gets a list of the tiles which will change
         pair_of_q_tiles = []
         ent_group_number = robber_tile.get("ent_group")
         #print(ent_group_number)
         for tile in self.tiles:
             if tile.get("ent_group") == ent_group_number:
                     pair_of_q_tiles.append(tile)
+        # gets the superposed list from one of the tiles, other should match so no problem there            
         possible_resources = robber_tile.get("superposed")[:]
+        possible_resources_lesser_dis = possible_resources[:]
+        possible_resources_greater_dis = possible_resources[:]
+        # modifies the possible resources to account for the distribution, by adding the first resourche a couple times
+        n = pair_of_q_tiles[0].get("distribution") / pair_of_q_tiles[1].get("distribution")
+        if n < 1:
+            amount_of_most_res = round(1/n)
+        else:
+            amount_of_most_res = round(n)
+        for i in range(amount_of_most_res - 1):
+            possible_resources_greater_dis.append(possible_resources_greater_dis[0])
+            possible_resources_lesser_dis.append(possible_resources_lesser_dis[1])
+
+        # shuffles the lists to create randomness   
+        random.shuffle(possible_resources_lesser_dis)
+        random.shuffle(possible_resources_greater_dis)
+
+        # idk MAURITS ZET NOTITIES NEER
         self.unused_ent_group_numbers.append(ent_group_number)
-        # shuffles the list to create randomness
-        random.shuffle(possible_resources)
+        
         # checks for every tile in the self.tiles list if one of the given tiles equals it
+        already_used_resource = None
         for n in range(len(self.tiles)):
             for tile in pair_of_q_tiles:
                 if tile == self.tiles[n]:
@@ -377,8 +396,20 @@ class GameState:
                     self.tiles[n]["quantum"] = False
                     self.tiles[n]["ent_group"] = None
                     # gives one tile one of the possible resources, the other the other resource
-                    self.tiles[n]["resource"] = possible_resources.pop()
+                    if already_used_resource == None:
+                        if self.tiles[n].get("distribution") >= 0.49:
+                            already_used_resource = possible_resources_greater_dis.pop()
+                        else:
+                            already_used_resource = possible_resources_lesser_dis.pop()
+                        self.tiles[n]["resource"] = already_used_resource
+                    else:
+                        possible_res = possible_resources.pop()
+                        # makes sure the resource is different from the one already used 
+                        while possible_res == already_used_resource:
+                            possible_res = possible_resources.pop()
+                        self.tiles[n]["resource"] = possible_res
                     del self.tiles[n]["superposed"]
+                    del self.tiles[n]["distribution"]
         for player in self.players:
             # checks all tokens of every player
             for token in player.tokens[:]:
@@ -389,6 +420,52 @@ class GameState:
                     self.push_message(msg)
                     player.tokens.remove(token)
                     
+    def change_ditribution(self, choosen_tile):
+        """input the tile which's distribution will increase, this function will increase it's distribution
+        and decrease its pair's"""
+        # finding both tiles and putting them in a list, also getting the index of the tile which will increase
+        group_id = choosen_tile.get("ent_group")
+        both_tiles = []
+        for tile in self.tiles:
+            if tile.get("ent_group") == group_id:
+                both_tiles.append(tile) 
+                if tile == choosen_tile:
+                    increase_tile_idx = len(both_tiles) - 1
+        # finding the tile with the leeser distribution and extracting this
+        if both_tiles[0].get("distribution") <= both_tiles[1].get("distribution"):
+            lesser_idx = 0
+        else:
+            lesser_idx = 1
+        lesser_prob = both_tiles[lesser_idx].get("distribution")
+        # really smart way of changing the distribution values by finding through which number  
+        probnum = round(1/lesser_prob)
+        if probnum != 2:
+            for n in range(len(self.tiles)):    
+                for i,tile in enumerate(both_tiles):
+                    # the tile were are about to change is the tile which will increase in distribution
+                    if both_tiles[i] == self.tiles[n] and i == increase_tile_idx:
+                        if increase_tile_idx == lesser_idx:
+                            self.tiles[n]["distribution"] = (1 / (probnum -1))
+                        else:
+                            self.tiles[n]["distribution"] = ((probnum) / (probnum + 1))
+                    # the tile we're about to change will decrease in distribution
+                    elif both_tiles[i] == self.tiles[n]:
+                        if increase_tile_idx == lesser_idx:
+                            self.tiles[n]["distribution"] = ((probnum-2) / (probnum -1))
+                        else:       
+                            self.tiles[n]["distribution"] = (1/(probnum + 1))   
+        # its the first time getting changed so both distribution values are 0.5          
+        else:
+            for n in range(len(self.tiles)):    
+                for i,tile in enumerate(both_tiles):
+                    if both_tiles[i] == self.tiles[n] and i == increase_tile_idx:
+                        self.tiles[n]["distribution"] = probnum/(probnum+1)
+                    elif both_tiles[i] == self.tiles[n]:
+                        self.tiles[n]["distribution"] = (1/(probnum+1))
+
+
+        
+
 
     # draw everything (board + UI overlays)
     def draw(self):
