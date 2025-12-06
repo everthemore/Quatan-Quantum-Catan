@@ -1,7 +1,7 @@
 # src/game_state.py
 # The central glue: game state, handlers, drawing of board and UI rectangles used by UI
 
-import pygame, math
+import pygame, math, time
 import random
 from .constants import WIN_W, WIN_H, BG_COLOR, PANEL_BG, LINE_COLOR, TEXT_COLOR, WHITE, BLACK, PLAYER_COLORS, BUTTON_COLOR, getFont, PREVIEW_COLOR, ENT_NUMBER_COLOURS
 from .board import (
@@ -282,7 +282,7 @@ class GameState:
         self.activated_settlements = []
         if self.devMode == False: self.allowed_actions.remove("rolling")
         roll = 0
-        self.frames_passed_at_roll = self.frames_passed
+        self.seconds_passed_at_roll = self.seconds_passed
         if number == None: 
             roll = random.randint(1,6) + random.randint(1,6) 
         else: 
@@ -580,14 +580,14 @@ class GameState:
         for idx, (owner, typ) in self.settlements_owner.items():
             x,y = self.intersections[idx]
             col = PLAYER_COLORS[owner]
-            deltaframes = self.frames_passed-self.frames_passed_at_roll
+            deltaseconds = self.seconds_passed - self.seconds_passed_at_roll
             if typ == "settlement":
                 pygame.draw.circle(s, col, (int(x), int(y)), 12)
                 pygame.draw.circle(s, BLACK, (int(x), int(y)), 2)
-                if deltaframes < 10 and idx in self.activated_settlements:
+                if deltaseconds < 0.5 and idx in self.activated_settlements:
                     pygame.draw.circle(s, (255, 255, 0), (int(x), int(y)), 12, width=3)
-                elif deltaframes >= 10 and deltaframes < 30 and idx in self.activated_settlements:
-                    pygame.draw.circle(s, col, (int(x) + (W-200-int(x))/20*(deltaframes-10), int(y) - (int(y)-100)/20*(deltaframes-10)), 12)
+                elif deltaseconds >= 0.5 and deltaseconds < 1.5 and idx in self.activated_settlements:
+                    pygame.draw.circle(s, col, (int(x) + (W-200-int(x))/1*(deltaseconds-0.5), int(y) - (int(y)-100)/1*(deltaseconds-0.5)), 12)
 
 
             else:
@@ -595,8 +595,8 @@ class GameState:
                 pygame.draw.rect(s, BLACK, (x-13, y-13, 26, 26), 2)
                 if self.frames_passed - self.frames_passed_at_roll < 10 and idx in self.activated_cities:
                     pygame.draw.rect(s, (255, 255, 0), (x-13, y-13, 26, 26), width=3)
-                if deltaframes >= 10 and deltaframes < 30 and idx in self.activated_cities:
-                    pygame.draw.rect(s, col, (int(x) + (W-200-int(x))/20*(deltaframes-10)-13, int(y) - (int(y)-100)/20*(deltaframes-10)-13, 26, 26))
+                if deltaseconds >= 10 and deltaseconds < 30 and idx in self.activated_cities:
+                    pygame.draw.rect(s, col, (int(x) + (W-200-int(x))/20*(deltaseconds-10)-13, int(y) - (int(y)-100)/20*(deltaseconds-10)-13, 26, 26))
                 
         # draw placement preview
         if self.placing and self.sel:
@@ -991,8 +991,8 @@ class GameState:
         
         self.devMode = False
         self.last_settlement_pos = None
-        self.frames_passed = 0
-        self.frames_passed_at_roll = 0
+        self.secpnds_passed = 0
+        self.seconds_passed_at_roll = 0
         self.activated_settlements = []
         self.activated_cities = []
         
@@ -1035,13 +1035,12 @@ class GameState:
                         self.allowed_actions.remove(k)
             
             for player in self.players:
-                if player.score >= 1 and self.runningGame:
+                if player.score >= 10 and self.runningGame:
                     self.push_message(f"{player.name} has won the game with a score of {player.score}!")
                     self.playerWon = True
                     self.runningGame = False
                     self.allowed_actions = []
-            
-            self.frames_passed += 1
+            self.seconds_passed = time.time()
                 
         """
         dt: milliseconds since last frame.
