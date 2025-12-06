@@ -143,7 +143,7 @@ class GameUI:
                         else:
                             self.state.push_message("Can only place settlements and roads during initial placement.")
                     elif self.state.player_can_afford(self.state.current_player, k):
-                        if "building" in self.state.allowed_actions:
+                        if "building" in self.state.allowed_actions or self.state.devMode == True:
                             self.state.sel = k
                             self.state.placing = self.state.sel
                         else:

@@ -900,6 +900,7 @@ class GameState:
         self.inspecting = False
         
         self.devMode = False
+        self.runningGame = True
         
         for p in range(3):
             while len(self.entangling_pair) < 2:
@@ -924,7 +925,13 @@ class GameState:
             if (self.roads_placed == 1) and (self.settlements_placed == 1):
                 if "endTurn" not in self.allowed_actions:
                     if self.devMode == False: self.allowed_actions.append("endTurn")
-               
+        
+        for player in self.players:
+            if player.score >= 10 and self.runningGame:
+                self.push_message(f"{player.name} has won the game with a score of {player.score}!")
+                self.runningGame = False
+                self.allowed_actions = []
+                
                 
         """
         dt: milliseconds since last frame.
