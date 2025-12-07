@@ -803,7 +803,7 @@ class GameState:
         tokensMessage = getFont(16).render(f"Tokens: ({len(self.players[self.current_player].tokens)})" + f"(18 shown)" if len(self.players[self.current_player].tokens)>18 else f"Tokens: ({len(self.players[self.current_player].tokens)})", True, TEXT_COLOR)
         s.blit(tokensMessage, (ix+12, 170))
         for i, token in enumerate(self.players[self.current_player].tokens if len(self.players[self.current_player].tokens)<=18 else self.players[self.current_player].tokens[-18:]):
-            dis = token.get("distribution", 0.5)
+            dis = round((self.tiles[token.get("from_tile_idx")].get("distribution") if self.tiles[token.get("from_tile_idx")].get("quantum", False) else 1.0), 2)
             possibleOne = str(token.get("possible")[0])
             possibleTwo = str(token.get("possible")[1])
             size = 14
@@ -817,7 +817,7 @@ class GameState:
                     if len(self.players[self.current_player].tokens) > 12:
                         size = 8
                         distance = 8
-            txt = getFont(size).render(f"{possibleOne.capitalize()}: {dis}, {possibleTwo.capitalize()}: {1-dis}", True, TEXT_COLOR)
+            txt = getFont(size).render(f"{possibleOne.capitalize()}: {dis}, {possibleTwo.capitalize()}: {round(1-dis, 2)}", True, TEXT_COLOR)
             s.blit(txt, (ix+12, 190 + i*distance))
             
             
