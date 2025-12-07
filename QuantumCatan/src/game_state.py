@@ -240,9 +240,8 @@ class GameState:
 
     def give_player_devcard(self, player_idx):
         """a function that gives the current player a random devcard and adds it to the player's held_dev_card"""
-        possible_cards = ["knight" * 14, "point" * 5, "interference" * 5, "Year of Plenty" * 2, "Monopoly" * 2, "roadBuilding" *2]
-        random.shuffle(possible_cards)
-        card = possible_cards.pop()
+        random.shuffle(self.possible_cards)
+        card = self.possible_cards.pop()[0]
         self.players[player_idx].held_dev_cards[card] += 1
         self.push_message(f"{self.players[player_idx].name} got a {card} card")
     
@@ -1135,6 +1134,7 @@ class GameState:
         self.milliseconds_passed_at_roll = 0
         self.activated_settlements = []
         self.activated_cities = []
+        self.possible_cards = [["knight"] * 14, ["point"] * 5, ["interference"] * 5, ["Year of Plenty"] * 2, ["Monopoly"] * 2, ["roadBuilding"] *2]
         
         self.longest_road = None
         

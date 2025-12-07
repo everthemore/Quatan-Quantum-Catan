@@ -149,7 +149,7 @@ class GameUI:
                         self.state.placing = False
                     else:
                         self.button_clicked()
-                        if self.state.round < 2:
+                        if self.state.round < 2 and self.state.devMode == False:
                             if k == "settlement":
                                 if self.state.settlements_placed == 0:
                                     self.state.sel = k
@@ -169,8 +169,13 @@ class GameUI:
                                 self.state.push_message("Can only place settlements and roads during initial placement.")
                         elif self.state.player_can_afford(self.state.current_player, k):
                             if "building" in self.state.allowed_actions or self.state.devMode == True:
-                                self.state.sel = k
-                                self.state.placing = self.state.sel
+                                if k == "dev":
+                                    self.state.player_buy(self.state.current_player, k)
+                                    self.state.give_player_devcard(self.state.current_player)
+                                    return
+                                else:
+                                    self.state.sel = k
+                                    self.state.placing = self.state.sel
                             else:
                                 self.state.push_message("Cannot build right now.")
                         else:
