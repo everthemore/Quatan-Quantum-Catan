@@ -252,12 +252,15 @@ class GameState:
         if self.players[player_idx].held_dev_cards.get(card_type) == 0:
             self.push_message(f"No {card_type}cards in inventory")
             return
+        # very important, can only be once per turn
+        self.has_placed_devcard = True
         self.players[player_idx].held_dev_cards[card_type] -= 1
         self.players[player_idx].played_dev_cards[card_type] += 1
         # gives the player a point
         if card_type == "point":
             self.players[player_idx].score += 1
             self.push_message(f"{self.players[player_idx].name} recieved a point") 
+            self.allowed_actions.remove("placeDevCard")
         # aplies knight card
         elif card_type == "knight":
             # adds to the players army
@@ -272,7 +275,12 @@ class GameState:
                     self.allowed_actions.remove(k)
             return
         elif card_type == "interference":
-            pass
+            self.push_message("Please select the quantum tile of which you want to raise the propability for the right side")
+            self.push_message("From the corresponding tile the left side's propability will be raised")
+            self.interfering = True
+            if self.devMode == False: 
+                for k in self.allowed_actions:
+                    self.allowed_actions.remove(k)
             # ook hier nog iets
 
     def check_for_greatest_knightmight(self):
@@ -408,7 +416,7 @@ class GameState:
             return
         else:
             if self.devMode == False: 
-                for k in ("endTurn", "trading", "building"):
+                for k in ("endTurn", "trading", "building", "placeDevCard"):
                     self.allowed_actions.append(k)
 
         # collect tokens or classical resources to players
@@ -481,8 +489,12 @@ class GameState:
             self.entangling = True
         else:
             if self.devMode == False:
-                for n in ("endTurn", "trading", "building", "placeDevCard"):
-                    self.allowed_actions.append(n)
+                if not self.has_placed_devcard:
+                    for n in ("endTurn", "trading", "building", "placeDevCard"):
+                        self.allowed_actions.append(n)
+                else:
+                    for n in ("endTurn", "trading", "building"):
+                        self.allowed_actions.append(n)
         #check if another player is on this tile and steal a resource
         for v in self.hex_vertex_indices[tile_idx]:
             owner = self.settlements_owner.get(v)
@@ -513,6 +525,8 @@ class GameState:
                     self.tiles[n]["resource"] = None
                     self.tiles[n]["distribution"] = 0.5
                     self.tiles[n]["superposed"] = [resource1, resource2]
+                    
+
 
     def unentangle_pair_of_quantum_tiles(self, robber_tile):
         """same principle as the other function, assumes the two quantum tiles contained in the list have the 
@@ -580,7 +594,7 @@ class GameState:
                     
     def change_ditribution(self, chosen_tile):
         """input the tile which's distribution will increase, this function will increase it's distribution
-        and decrease its pair's"""
+        and decrease its pair's, also adds the allowed actions back"""
         # finding both tiles and putting them in a list, also getting the index of the tile which will increase
         group_id = chosen_tile.get("ent_group")
         both_tiles = []
@@ -621,6 +635,9 @@ class GameState:
                         self.tiles[n]["distribution"] = probnum/(probnum+1)
                     elif both_tiles[i] == self.tiles[n]:
                         self.tiles[n]["distribution"] = (1/(probnum+1))
+        # reallows teh actions except Placedevcard
+        for n in ("endTurn", "trading", "building"):
+            self.allowed_actions.append(n)
 
     # draw everything (board + UI overlays)
     def draw(self):
@@ -985,6 +1002,7 @@ class GameState:
     def end_turn(self):
         
         self.trading = False
+        self.has_placed_devcard = False
         self.trading_partner = None
         self.possible_trading_partners = []
         self.trading_partners_rects = []
@@ -1023,7 +1041,7 @@ class GameState:
         else:
             if self.devMode == False: self.allowed_actions.append("building")
         if self.devMode == False: 
-            for k in ("trading", "building", "endTurn"):
+            for k in ("trading", "building", "endTurn", "placeDevCard"):
                 if k in self.allowed_actions:
                     self.allowed_actions.remove(k)
 
@@ -1045,13 +1063,15 @@ class GameState:
         self.unused_ent_group_numbers = [i+1 for i in range(10)]
         self.tiles = randomize_tiles()
         # randomly select 3 entangled pairs
-        
+        print(self.tiles)
         
         
         
         self.sea_tiles = generate_sea_ring()
         self.moving_robber = False
         self.entangling = False
+        self.has_placed_devcard = False
+        self.interfering = False
         self.entangling_pair = []
         
         

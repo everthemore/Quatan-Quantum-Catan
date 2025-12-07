@@ -230,6 +230,18 @@ class GameUI:
                 if tile_idx is not None and tile_idx != self.state.robber_idx:
                     self.state.move_robber_to(tile_idx)
                     self.state.moving_robber = False
+
+            elif self.state.interfering and self.state.inspecting == False:
+                tile_idx = self.state.find_nearest_tile(pos)
+                if tile_idx is not None:
+                    tile = self.state.tiles[tile_idx]
+                    if not tile.get("quantum"):
+                        self.state.push_message("please select a quantum tile")
+                    else:
+                        self.state.change_ditribution(tile)
+                        self.state.interfering = False
+
+
             elif self.state.entangling and self.state.inspecting == False:
                 tile_idx = self.state.find_nearest_tile(pos)
                 resource_list = [t.get("resource") for idx, t in self.state.entangling_pair]
