@@ -1,7 +1,7 @@
 # src/game_state.py
 # The central glue: game state, handlers, drawing of board and UI rectangles used by UI
 
-import pygame, math, time
+import pygame, math, time, os
 import random
 from .constants import WIN_W, WIN_H, BG_COLOR, PANEL_BG, LINE_COLOR, TEXT_COLOR, WHITE, BLACK, PLAYER_COLORS, BUTTON_COLOR, getFont, PREVIEW_COLOR, ENT_NUMBER_COLOURS
 from .board import (
@@ -22,6 +22,9 @@ from .buildings import compute_vertex_adjacency
 from .player import Player
 from .constants import WIN_W as W, WIN_H as H
 
+dir = os.path.dirname(__file__)
+
+
 class GameState:
     def __init__(self, num_players=4, screen=None):
         self.screen = screen
@@ -37,6 +40,7 @@ class GameState:
         self.entanglement_buttons = []
         self.start_button = pygame.Rect(W//2 - 90, H//2 + 250, 180, 40)
         self.restart_button = pygame.Rect(W//2 - 105, H//2 + 200, 210, 40)
+        
 
     def start_game(self,):
         self.runningGame = True
