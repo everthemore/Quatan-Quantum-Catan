@@ -752,7 +752,7 @@ class GameState:
         draw_text(s, "Shop", sx+10, sy+8, size=18)
         # populate shop rects and store them in state
         self.shop_rects = []
-        opts = [("road","Road (1 Lumber, 1 Brick)"),("settlement","Settlement (1 Lumber, 1 Brick, 1 Wool, 1 Grain)"),("city","City (2 Grain, 3 Ore)"),("dev","Dev Card (1 Wool, 1 Grain, 1 Ore)")]
+        opts = [("road","Road (1L, 1B)"),("settlement","Settlement (1L, 1B, 1W, 1G)"),("city","City (2G, 3O)"),("dev","Dev Card (1W, 1G, 1O)")]
         selectBrightFactor = 1.2
         hoverBrightFactor = 1.1
         
