@@ -240,10 +240,11 @@ class GameState:
 
     def give_player_devcard(self, player_idx):
         """a function that gives the current player a random devcard and adds it to the player's held_dev_card"""
-        possible_cards = ["knight", "point", "interference"]
-        card = random.choice(possible_cards)
+        possible_cards = ["knight" * 14, "point" * 5, "interference" * 5, "Year of Plenty" * 2, "Monopoly" * 2, "roadBuilding" *2]
+        random.shuffle(possible_cards)
+        card = possible_cards.pop()
         self.players[player_idx].held_dev_cards[card] += 1
-        self.push_message(f"{self.players[player_idx].name} got a {card}card")
+        self.push_message(f"{self.players[player_idx].name} got a {card} card")
     
     def play_dev_card(self, player_idx, card_type):
         """checks if the player has a dev card of that type, if so it removes one from the players inventory and adds it to
@@ -704,6 +705,33 @@ class GameState:
                         colour = ENT_NUMBER_COLOURS[group - 1]
                         pygame.draw.circle(s, colour, (int(cx), int(cy)), 20, width=4)
 
+
+        #draw selection hexagon highlight
+        if self.moving_robber or self.entangling or self.inspecting:
+            text = None
+            if self.inspecting:
+                text = "Select a tile to inspect"
+            elif self.moving_robber:
+                text = "Select a tile for the robber"
+            elif self.entangling:
+                text = "Select two tiles to entangle"
+            
+            draw_text(s, text, self.screen.get_width()//2, 50, size=19, color=TEXT_COLOR, centered=True)
+            
+            # make the borders of selected tile thicker
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            hovered_tile = self.find_nearest_tile((mouse_x, mouse_y))
+            
+            if hovered_tile is not None:
+                cx, cy = self.centers[hovered_tile]
+                pygame.draw.polygon(s, (255, 255, 0), self.polys[hovered_tile], 3)
+            if self.entangling and len(self.entangling_pair) == 1:
+                q, r = self.entangling_pair[0][1]["coord"]
+                selected_tile = self.entangling_pair[0][0]
+                self.unused_ent_group_numbers.sort()
+                pygame.draw.polygon(s, ENT_NUMBER_COLOURS[self.unused_ent_group_numbers[0]-1], self.polys[selected_tile], 5)
+
+
         # draw roads
         for (a,b), owner in self.roads_owner.items():
             ax,ay = self.intersections[a]; bx,by = self.intersections[b]
@@ -907,29 +935,7 @@ class GameState:
         # trade give/recv rects not implemented fully for compactness
         # (UI handles simplified trade by textual input mapping in main UI class)
         
-        if self.moving_robber or self.entangling or self.inspecting:
-            text = None
-            if self.inspecting:
-                text = "Select a tile to inspect"
-            elif self.moving_robber:
-                text = "Select a tile for the robber"
-            elif self.entangling:
-                text = "Select two tiles to entangle"
-            
-            draw_text(s, text, self.screen.get_width()//2, 50, size=19, color=TEXT_COLOR, centered=True)
-            
-            # make the borders of selected tile thicker
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            hovered_tile = self.find_nearest_tile((mouse_x, mouse_y))
-            
-            if hovered_tile is not None:
-                cx, cy = self.centers[hovered_tile]
-                pygame.draw.polygon(s, (255, 255, 0), self.polys[hovered_tile], 3)
-            if self.entangling and len(self.entangling_pair) == 1:
-                q, r = self.entangling_pair[0][1]["coord"]
-                selected_tile = self.entangling_pair[0][0]
-                self.unused_ent_group_numbers.sort()
-                pygame.draw.polygon(s, ENT_NUMBER_COLOURS[self.unused_ent_group_numbers[0]-1], self.polys[selected_tile], 5)
+
                 
             
         #if self.moving_robber or 

@@ -13,8 +13,8 @@ class Player:
         # owned buildings tracked in game_state dictionaries (roads_owner / settlements_owner)
         # convenience: track score (number of settlements*1 + cities*2)
         self.score = 0
-        self.held_dev_cards = {"knight": 0, "point": 0, "interference": 0}
-        self.played_dev_cards = {"knight": 0, "point": 0, "interference": 0}
+        self.held_dev_cards = {"knight": 0, "point": 0, "interference": 0, "Year of Plenty": 0, "Monopoly": 0, "roadBuilding": 0}
+        self.played_dev_cards = {"knight": 0, "point": 0, "interference": 0, "Year of Plenty": 0, "Monopoly": 0, "roadBuilding": 0}
         self.buildables_placed = {"settlements":[], "cities":[], "roads":[]}
         self.knightmight = 0
         self.has_greatest_knightmight = False
