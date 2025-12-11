@@ -110,7 +110,7 @@ DevMode is meant to be used for testing our quantum features and demonstrating o
 - Supervisor: Dr. E.P.L. van Nieuwenburg (Leiden Institute of Advanced Computer Science)
 
 ## Additional Design
-- Audio Design: Niels [Last Name]
+- Audio Design: Nils van Popele
 - Logo Design: Roosmarijn Nieuwenhuis
 
 ### Acknowledgements
