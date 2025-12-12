@@ -48,6 +48,10 @@ def main():
                     isFullscreen = True
                     pygame.display.set_mode(pygame.display.get_desktop_sizes()[0], HWSURFACE|DOUBLEBUF|FULLSCREEN)
                     ui.screen = screen
+                elif event.key == pygame.K_f and isFullscreen:
+                    isFullscreen = False
+                    pygame.display.set_mode(pygame.display.get_desktop_sizes()[0], HWSURFACE|DOUBLEBUF|RESIZABLE)
+                    ui.screen = screen
             if event.type == VIDEORESIZE and not isFullscreen:
                 width, height = event.size
                 if width < 1100:

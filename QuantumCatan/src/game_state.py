@@ -31,6 +31,8 @@ class GameState:
         self.playerWon = False
         self.num_entangled_pairs = 2
         self.runningGame = False
+        self.monopolysing = False
+        self.resources_to_collect = 0
         self.hex_size = 50
         self.devMode = False
         self.origin = (self.screen.get_width()//2, self.screen.get_height()//2 - 10)
