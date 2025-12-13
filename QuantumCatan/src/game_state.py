@@ -1101,10 +1101,23 @@ class GameState:
         s.fill(BG_COLOR)
         W = self.screen.get_width()
         H = self.screen.get_height()
+        # finds coordinates for the image, could probably be done better but eeehhhhhhhhh
+        if W == 1100:
+            img_W = 250
+            img_H = -10
+        else:
+            img_W = 460
+            img_H = 3
         self.num_player_buttons = []
         self.entanglement_buttons = []
         self.start_button = self.start_button
-        draw_text(s, "Quantum Catan", W//2, H//4, size=48, color=TEXT_COLOR, centered=True)
+        # finds the image and reforms it
+        img = pygame.image.load("../img/QuatanLogo.png")
+        image_size = (600,400)
+        reformed_img = pygame.transform.scale(img, image_size)
+        # draws the image
+        self.screen.blit(reformed_img, (img_W, img_H))
+        #draw_text(s, "Quantum Catan", W//2, H//4, size=48, color=TEXT_COLOR, centered=True)
         draw_text(s, "Select number of players:", W//2, H//2 - 40, size=24, color=TEXT_COLOR, centered=True)
         # draw buttons for 2-4 players
         for i in range(2,5):
